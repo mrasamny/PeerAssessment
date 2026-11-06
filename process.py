@@ -128,9 +128,15 @@ def summarize_assessment(
                             )
                         recommendations[key] += 1
 
+    rating_totals = {}
+    for key, name in student_names.items():
+        values = [rating for category in scores.values() for rating in category[key]]
+        rating_totals[name] = (sum(values), len(values)) if key in respondents else (0, 0)
+
     return {
         "group": group,
         "respondent_count": len(respondents),
+        "rating_totals": rating_totals,
         "rated_students_not_in_roster": [
             student_names[key] for key in student_names if key in rated_names - group_names
         ],
@@ -206,6 +212,32 @@ def save_summary(assessment_file: str | Path, group_roster_file: str | Path,
     return summary
 
 
+def write_grade_csv(completed: list[tuple[Path, dict]], output_dir: Path) -> Path:
+    """Write one sorted overall average per student from completed reports."""
+    students: dict[str, dict] = {}
+    for _, summary in completed:
+        for name, (score_total, score_count) in summary["rating_totals"].items():
+            entry = students.setdefault(_name_key(name), {"name": name, "total": 0, "count": 0})
+            entry["total"] += score_total
+            entry["count"] += score_count
+
+    rows = []
+    for entry in students.values():
+        first_name, separator, last_name = entry["name"].rpartition(" ")
+        if not separator:
+            first_name, last_name = "", entry["name"]
+        average = entry["total"] / entry["count"] if entry["count"] else 0.0
+        rows.append((last_name, first_name, f"{average:.2f}"))
+    rows.sort(key=lambda row: (row[0].casefold(), row[1].casefold()))
+
+    grade_file = output_dir / "grade.csv"
+    with grade_file.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(("last name", "first name", "average"))
+        writer.writerows(rows)
+    return grade_file
+
+
 def process_assessments(assessment_files: list[str | Path], group_roster_file: str | Path | None,
                         output_dir: str | Path) -> tuple[list[tuple[Path, dict]], list[tuple[Path, str]]]:
     output_dir = Path(output_dir).expanduser()
@@ -214,6 +246,8 @@ def process_assessments(assessment_files: list[str | Path], group_roster_file: s
     assessments = [Path(path).expanduser() for path in assessment_files]
     if not assessments:
         raise ValueError("Select at least one assessment CSV")
+    if any(assessment.resolve() == (output_dir / "grade.csv").resolve() for assessment in assessments):
+        raise ValueError("The output grade.csv cannot be one of the selected assessment files")
 
     report_names = set()
     for assessment in assessments:
@@ -232,6 +266,8 @@ def process_assessments(assessment_files: list[str | Path], group_roster_file: s
             completed.append((report, summary))
         except (Exception, SystemExit) as error:
             errors.append((assessment, str(error)))
+    if completed:
+        write_grade_csv(completed, output_dir)
     return completed, errors
 
 
@@ -315,7 +351,9 @@ def launch_gui() -> None:
         except (Exception, SystemExit) as error:
             messagebox.showerror("Could not process assessments", str(error), parent=root)
             return
-        details = [f"Saved {len(completed)} report(s) in:\n{output.get().strip()}"]
+        details = [f"Saved {len(completed)} report(s)" +
+                   (" and grade.csv" if completed else "") +
+                   f" in:\n{output.get().strip()}"]
         firing_reports = [(path, summary["recommended_for_firing"])
                           for path, summary in completed if summary["recommended_for_firing"]]
         low_response_reports = [(path, summary["respondent_count"])

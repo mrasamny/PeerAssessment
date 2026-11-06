@@ -63,7 +63,9 @@ Add `--qti` for Canvas QTI ZIP files or `--no-fire` to omit the firing recommend
 4. Choose the report folder if needed. It defaults to the folder of the first assessment selected.
 5. Click **Process assessments**.
 
-The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It processes the remaining files if one assessment fails. After processing, a warning window lists report files with members recommended for firing, report files with fewer than four respondents, and any processing errors or roster mismatches. Two selected files that would produce the same report name must be processed separately or renamed first.
+The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It also creates `grade.csv` there with one row per student from the successfully processed assessments. Its columns are `last name`, `first name`, and `average`, sorted by last name and then first name. The average combines all rubric ratings for that student; a student with no responses in the processed files receives `0.00`, following the text reports' grading rule. If a student appears in multiple processed files, their ratings are combined into one average. Running another batch in the same folder replaces `grade.csv` with that batch's grades.
+
+The script processes the remaining files if one assessment fails. After processing, a warning window lists report files with members recommended for firing, report files with fewer than four respondents, and any processing errors or roster mismatches. Two selected files that would produce the same report name must be processed separately or renamed first.
 
 Terminal mode processes one assessment and prints its report to the terminal:
 
