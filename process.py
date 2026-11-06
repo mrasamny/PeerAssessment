@@ -130,6 +130,7 @@ def summarize_assessment(
 
     return {
         "group": group,
+        "respondent_count": len(respondents),
         "rated_students_not_in_roster": [
             student_names[key] for key in student_names if key in rated_names - group_names
         ],
@@ -315,6 +316,16 @@ def launch_gui() -> None:
             messagebox.showerror("Could not process assessments", str(error), parent=root)
             return
         details = [f"Saved {len(completed)} report(s) in:\n{output.get().strip()}"]
+        firing_reports = [(path, summary["recommended_for_firing"])
+                          for path, summary in completed if summary["recommended_for_firing"]]
+        low_response_reports = [(path, summary["respondent_count"])
+                                for path, summary in completed if summary["respondent_count"] < 4]
+        if firing_reports:
+            details.append("Reports with members recommended for firing:\n" + "\n".join(
+                f"{path.name}: {', '.join(members)}" for path, members in firing_reports))
+        if low_response_reports:
+            details.append("Reports with fewer than 4 respondents:\n" + "\n".join(
+                f"{path.name}: {count} respondent(s)" for path, count in low_response_reports))
         warnings = [(path, roster_warning(summary)) for path, summary in completed]
         warnings = [(path, warning) for path, warning in warnings if warning]
         if warnings:
@@ -324,7 +335,7 @@ def launch_gui() -> None:
             details.append("Could not process:\n" + "\n".join(
                 f"{path.name}: {error}" for path, error in errors))
             messagebox.showwarning("Processing finished with errors", "\n\n".join(details), parent=root)
-        elif warnings:
+        elif firing_reports or low_response_reports or warnings:
             messagebox.showwarning("Reports saved with warnings", "\n\n".join(details), parent=root)
         else:
             messagebox.showinfo("Reports saved", details[0], parent=root)

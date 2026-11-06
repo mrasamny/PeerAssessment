@@ -63,7 +63,7 @@ Add `--qti` for Canvas QTI ZIP files or `--no-fire` to omit the firing recommend
 4. Choose the report folder if needed. It defaults to the folder of the first assessment selected.
 5. Click **Process assessments**.
 
-The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It processes the remaining files if one assessment fails and shows a message listing any errors or roster mismatches. Two selected files that would produce the same report name must be processed separately or renamed first.
+The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It processes the remaining files if one assessment fails. After processing, a warning window lists report files with members recommended for firing, report files with fewer than four respondents, and any processing errors or roster mismatches. Two selected files that would produce the same report name must be processed separately or renamed first.
 
 Terminal mode processes one assessment and prints its report to the terminal:
 
