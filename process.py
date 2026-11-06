@@ -29,6 +29,12 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^\w]", "", name, flags=re.UNICODE).casefold()
 
 
+def _canvas_student_name(raw_name: str) -> str:
+    """Convert Canvas's LAST FIRST roster names to First Last."""
+    parts = raw_name.split()
+    return " ".join(parts[1:] + parts[:1]).title()
+
+
 def read_project_roster(group_roster_file: str | Path) -> dict[str, list[str]]:
     """Return group names mapped to student names from a Canvas roster CSV."""
     roster: dict[str, list[str]] = {}
@@ -42,12 +48,25 @@ def read_project_roster(group_roster_file: str | Path) -> dict[str, list[str]]:
             raw_name = (row["name"] or "").strip()
             if not group or not raw_name:
                 continue
-            # Canvas exports the roster as LAST FIRST; questions use First Last.
-            parts = raw_name.split()
-            student = " ".join(parts[1:] + parts[:1]).title()
+            student = _canvas_student_name(raw_name)
             roster.setdefault(group, []).append(student)
 
     return roster
+
+
+def read_project_students(group_roster_file: str | Path) -> dict[str, str]:
+    """Return every named student in the project CSV, including unassigned students."""
+    students = {}
+    with Path(group_roster_file).open(newline="", encoding="utf-8-sig") as file:
+        reader = csv.DictReader(file)
+        if "name" not in (reader.fieldnames or []):
+            raise ValueError("Roster must contain a name column")
+        for row in reader:
+            raw_name = (row["name"] or "").strip()
+            if raw_name:
+                name = _canvas_student_name(raw_name)
+                students.setdefault(_name_key(name), name)
+    return students
 
 
 def summarize_assessment(
@@ -212,12 +231,16 @@ def save_summary(assessment_file: str | Path, group_roster_file: str | Path,
     return summary
 
 
-def write_grade_csv(completed: list[tuple[Path, dict]], output_dir: Path) -> Path:
-    """Write one sorted overall average per student from completed reports."""
-    students: dict[str, dict] = {}
+def write_grade_csv(completed: list[tuple[Path, dict]], roster_students: dict[str, str],
+                    output_dir: Path) -> Path:
+    """Write every roster student, with zero for students without processed ratings."""
+    students = {key: {"name": name, "total": 0, "count": 0}
+                for key, name in roster_students.items()}
     for _, summary in completed:
         for name, (score_total, score_count) in summary["rating_totals"].items():
-            entry = students.setdefault(_name_key(name), {"name": name, "total": 0, "count": 0})
+            entry = students.get(_name_key(name))
+            if entry is None:
+                continue
             entry["total"] += score_total
             entry["count"] += score_count
 
@@ -248,6 +271,11 @@ def process_assessments(assessment_files: list[str | Path], group_roster_file: s
         raise ValueError("Select at least one assessment CSV")
     if any(assessment.resolve() == (output_dir / "grade.csv").resolve() for assessment in assessments):
         raise ValueError("The output grade.csv cannot be one of the selected assessment files")
+    roster_paths = {Path(group_roster_file).expanduser()} if group_roster_file else {
+        assessment.parent / "Project.csv" for assessment in assessments
+    }
+    if any(roster.resolve() == (output_dir / "grade.csv").resolve() for roster in roster_paths):
+        raise ValueError("The output grade.csv cannot be the selected project roster file")
 
     report_names = set()
     for assessment in assessments:
@@ -267,7 +295,14 @@ def process_assessments(assessment_files: list[str | Path], group_roster_file: s
         except (Exception, SystemExit) as error:
             errors.append((assessment, str(error)))
     if completed:
-        write_grade_csv(completed, output_dir)
+        roster_students = {}
+        for roster in sorted(roster_paths):
+            try:
+                roster_students.update(read_project_students(roster))
+            except (OSError, ValueError):
+                # The per-assessment errors above already identify unreadable rosters.
+                pass
+        write_grade_csv(completed, roster_students, output_dir)
     return completed, errors
 
 
