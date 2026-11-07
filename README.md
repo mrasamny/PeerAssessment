@@ -11,7 +11,7 @@ On macOS, double-clicking a `.py` file may open it in an editor instead of runni
 
 ## Input files
 
-- **Project roster CSV:** Download this from the **group page under People** in Canvas. It must be the project/group roster export with `name` and `group_name` columns; the survey creator reads the group name from column 6.
+- **Project roster CSV:** Download this from the **group page under People** in Canvas. It must be the project/group roster export with `name`, `group_name`, and `canvas_user_id` columns; the survey creator reads the group name from column 6. The processor needs `canvas_user_id` to match grades to students in Canvas.
 - **Rubric CSV:** A CSV you prepare with one rubric category per row and five rating descriptions. See `rubric.csv` in this folder for an example.
 - **Assessment CSVs:** The student analysis report CSVs exported from Canvas after students complete the surveys. Each file should contain one group's responses.
 
@@ -63,7 +63,9 @@ Add `--qti` for Canvas QTI ZIP files or `--no-fire` to omit the firing recommend
 4. Choose the report folder if needed. It defaults to the folder of the first assessment selected.
 5. Click **Process assessments**.
 
-The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It also creates `grade.csv` there with one row for **every student in the selected project roster**, including students in groups without a processed assessment and students not assigned to a group. If no roster is selected, it includes students from the `Project.csv` files beside the selected assessments. Its columns are `last name`, `first name`, and `average`, sorted by last name and then first name. The average combines all rubric ratings for that student; a student with no processed ratings receives `0.00`. If a student appears in multiple processed files, their ratings are combined into one average. Running another batch in the same folder replaces `grade.csv` with that batch's grades.
+The script saves one `<assessment name without .csv>_summary.txt` report per assessment in the report folder. It also creates a Canvas Gradebook import file, `grade.csv`, with one row for **every student in the selected project roster**, including students in groups without a processed assessment and students not assigned to a group. If no roster is selected, it includes students from the `Project.csv` files beside the selected assessments. The file contains Canvas's student identification columns, a `Points Possible` row, and a `Peer Assessment` assignment column worth 5 points. The score combines all rubric ratings for that student; a student with no processed ratings receives `0.00`. If a student appears in multiple processed files, their ratings are combined into one average. Running another batch in the same folder replaces `grade.csv` with that batch's grades.
+
+To import, open **Grades** in Canvas, click **Import**, and upload `grade.csv`. If Canvas identifies `Peer Assessment` as a new assignment, choose **A new assignment** with **5 points possible**, then review and save the changes. Canvas publishes new assignments created by grade import. Courses with multiple grading periods must have the assignment created in Canvas before importing grades.
 
 The script processes the remaining files if one assessment fails. After processing, a warning window lists report files with members recommended for firing, report files with fewer than four respondents, and any processing errors or roster mismatches. Two selected files that would produce the same report name must be processed separately or renamed first.
 

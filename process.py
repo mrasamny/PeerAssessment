@@ -54,18 +54,27 @@ def read_project_roster(group_roster_file: str | Path) -> dict[str, list[str]]:
     return roster
 
 
-def read_project_students(group_roster_file: str | Path) -> dict[str, str]:
-    """Return every named student in the project CSV, including unassigned students."""
+def read_project_students(group_roster_file: str | Path) -> dict[str, dict[str, str]]:
+    """Return every student and their Canvas IDs, including unassigned students."""
     students = {}
     with Path(group_roster_file).open(newline="", encoding="utf-8-sig") as file:
         reader = csv.DictReader(file)
-        if "name" not in (reader.fieldnames or []):
-            raise ValueError("Roster must contain a name column")
-        for row in reader:
+        if not {"name", "canvas_user_id"}.issubset(reader.fieldnames or []):
+            raise ValueError("Roster must contain name and canvas_user_id columns for grade import")
+        for line_number, row in enumerate(reader, start=2):
             raw_name = (row["name"] or "").strip()
             if raw_name:
+                canvas_id = (row["canvas_user_id"] or "").strip()
+                if not canvas_id:
+                    raise ValueError(f"Roster row {line_number} is missing a Canvas user ID")
                 name = _canvas_student_name(raw_name)
-                students.setdefault(_name_key(name), name)
+                students.setdefault(_name_key(name), {
+                    "name": name,
+                    "canvas_user_id": canvas_id,
+                    "user_id": (row.get("user_id") or "").strip(),
+                    "login_id": (row.get("login_id") or "").strip(),
+                    "sections": (row.get("sections") or "").strip(),
+                })
     return students
 
 
@@ -231,11 +240,11 @@ def save_summary(assessment_file: str | Path, group_roster_file: str | Path,
     return summary
 
 
-def write_grade_csv(completed: list[tuple[Path, dict]], roster_students: dict[str, str],
+def write_grade_csv(completed: list[tuple[Path, dict]], roster_students: dict[str, dict[str, str]],
                     output_dir: Path) -> Path:
-    """Write every roster student, with zero for students without processed ratings."""
-    students = {key: {"name": name, "total": 0, "count": 0}
-                for key, name in roster_students.items()}
+    """Write a Canvas Gradebook import with zero for students without ratings."""
+    students = {key: {**student, "total": 0, "count": 0}
+                for key, student in roster_students.items()}
     for _, summary in completed:
         for name, (score_total, score_count) in summary["rating_totals"].items():
             entry = students.get(_name_key(name))
@@ -246,17 +255,17 @@ def write_grade_csv(completed: list[tuple[Path, dict]], roster_students: dict[st
 
     rows = []
     for entry in students.values():
-        first_name, separator, last_name = entry["name"].rpartition(" ")
-        if not separator:
-            first_name, last_name = "", entry["name"]
         average = entry["total"] / entry["count"] if entry["count"] else 0.0
-        rows.append((last_name, first_name, f"{average:.2f}"))
-    rows.sort(key=lambda row: (row[0].casefold(), row[1].casefold()))
+        rows.append((entry["name"], entry["canvas_user_id"], entry["user_id"],
+                     entry["login_id"], entry["sections"], f"{average:.2f}"))
+    rows.sort(key=lambda row: row[0].casefold())
 
     grade_file = output_dir / "grade.csv"
     with grade_file.open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
-        writer.writerow(("last name", "first name", "average"))
+        writer.writerow(("Student", "ID", "SIS User ID", "SIS Login ID", "Section",
+                         "Peer Assessment"))
+        writer.writerow(("Points Possible", "", "", "", "", "5"))
         writer.writerows(rows)
     return grade_file
 
@@ -299,9 +308,8 @@ def process_assessments(assessment_files: list[str | Path], group_roster_file: s
         for roster in sorted(roster_paths):
             try:
                 roster_students.update(read_project_students(roster))
-            except (OSError, ValueError):
-                # The per-assessment errors above already identify unreadable rosters.
-                pass
+            except (OSError, ValueError) as error:
+                raise ValueError(f"Cannot create Canvas grade import from {roster}: {error}") from error
         write_grade_csv(completed, roster_students, output_dir)
     return completed, errors
 
