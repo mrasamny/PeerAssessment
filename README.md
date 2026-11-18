@@ -7,7 +7,10 @@ These scripts work only with the Canvas peer assessment survey workflow. They cr
 - Python 3.10 or newer with Tkinter for the browse windows.
 - For Canvas QTI ZIP export only: install `text2qti` with `python3 -m pip install text2qti`.
 
-On macOS, double-clicking a `.py` file may open it in an editor instead of running it. If that happens, double-click the corresponding `.command` file to open the script's browse window: `Create Surveys.command` or `Process Assessments.command`.
+To open a script's browse window by double-clicking:
+
+- **macOS:** Double-click `Create Surveys.command` or `Process Assessments.command`. If macOS asks which app to use, right-click the file and choose **Open**.
+- **Windows:** Double-click `Create Surveys.bat` or `Process Assessments.bat`. Python must be installed from [python.org](https://python.org); the Microsoft Store version may not include the `pythonw` launcher used to suppress the console window.
 
 ## Input files
 
@@ -39,7 +42,7 @@ Each row becomes a rubric shown above the five rating choices for every student 
 
 ## Create surveys
 
-1. Double-click `create_survey.py` or run `python3 create_survey.py` in a terminal. If your computer opens `.py` files in an editor on macOS, double-click `Create Surveys.command`.
+1. Double-click `Create Surveys.command` (macOS) or `Create Surveys.bat` (Windows) to open the browse window, or run `python3 create_survey.py` in a terminal.
 2. Browse for the project roster CSV. The output folder defaults to the roster's folder.
 3. Optionally browse for a rubric CSV. If left blank, the script looks for `rubric.csv` beside the selected project CSV and displays an error if it is missing.
 4. Choose an output folder if you want a different location. Optionally select **Create Canvas QTI ZIP files** or **Omit firing recommendation question**.
@@ -57,7 +60,7 @@ Add `--qti` for Canvas QTI ZIP files or `--no-fire` to omit the firing recommend
 
 ## Process assessment results
 
-1. Double-click `process.py` or run `python3 process.py` without arguments to open the browse window. If macOs opens the file in an editor, double-click `Process Assessments.command`.
+1. Double-click `Process Assessments.command` (macOS) or `Process Assessments.bat` (Windows) to open the browse window, or run `python3 process.py` in a terminal.
 2. Click **Add…** and select one or several assessment CSVs. You can use **Add…** again for files in another folder, or select files in the list and click **Remove**.
 3. Optionally browse for a project roster CSV. If left blank, the script looks for `Project.csv` beside **each** assessment CSV and reports any missing file. A selected roster is used for every assessment.
 4. Choose the report folder if needed. It defaults to the folder of the first assessment selected.
